@@ -126,7 +126,7 @@ impl EntityManager {
         T: ToTableName + ToColumnNames + ToDao,
         R: FromDao + ToColumnNames,
     {
-        let table = T::to_table_name();
+        let table = R::to_table_name();
         let columns = T::to_column_names();
         let mut sql = String::new();
         sql += &format!("UPDATE {} ", table.complete_name());
@@ -177,7 +177,7 @@ impl EntityManager {
         T: ToTableName + ToColumnNames + ToDao,
         R: FromDao + ToColumnNames,
     {
-        let table = T::to_table_name();
+        let table = R::to_table_name();
         let columns = T::to_column_names();
         let columns_len = columns.len();
         let mut sql = String::new();
