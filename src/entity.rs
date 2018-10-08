@@ -248,6 +248,15 @@ impl EntityManager {
         sql += &table.complete_name();
         sql += " ";
         sql += rest_clause;
+        let return_columns = R::to_column_names();
+        sql += &format!(
+            "\nRETURNING \n{}",
+            return_columns
+                .iter()
+                .map(|rc| rc.name.to_owned())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
 
         let rows = self.0.execute_sql_with_return(&sql, &[])?;
         let mut retrieved_entities = vec![];
