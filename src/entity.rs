@@ -124,7 +124,7 @@ impl EntityManager {
     pub fn update<T, R>(&self, entity: &T, rest_clause: &str) -> Result<Vec<R>, DbError>
     where
         T: ToTableName + ToColumnNames + ToDao,
-        R: FromDao + ToColumnNames,
+        R: FromDao + ToTableName + ToColumnNames,
     {
         let table = R::to_table_name();
         let columns = T::to_column_names();
@@ -175,7 +175,7 @@ impl EntityManager {
     pub fn insert<T, R>(&self, entities: &[&T]) -> Result<Vec<R>, DbError>
     where
         T: ToTableName + ToColumnNames + ToDao,
-        R: FromDao + ToColumnNames,
+        R: FromDao + ToTableName + ToColumnNames,
     {
         let table = R::to_table_name();
         let columns = T::to_column_names();
