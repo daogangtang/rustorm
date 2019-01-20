@@ -1,13 +1,13 @@
 //! module table_info extract the table meta data using SQL queries on pg_catalog.
 //! This is not using information_schema since there is a performance issue with it.
 use column::Column;
-use dao::ColumnName;
-use dao::FromDao;
-use dao::TableName;
+use rustorm_dao::ColumnName;
+use rustorm_dao::FromDao;
+use rustorm_dao::TableName;
 use entity::EntityManager;
 use error::DbError;
 use pg::column_info;
-use table::{self, ForeignKey, PrimaryKey, SchemaContent, Table, TableKey, UniqueKey};
+use table::{self, Key, ForeignKey, SchemaContent, Table, TableKey};
 
 /// get all database tables and views except from special schema
 pub fn get_all_tables(em: &EntityManager) -> Result<Vec<Table>, DbError> {
@@ -25,19 +25,19 @@ pub fn get_all_tables(em: &EntityManager) -> Result<Vec<Table>, DbError> {
             }
         }
     }
-    let sql = r#"SELECT 
-             pg_class.relname AS name, 
-             pg_namespace.nspname AS schema 
-        FROM pg_class 
-   LEFT JOIN pg_namespace 
-          ON pg_namespace.oid = pg_class.relnamespace 
-       WHERE 
-             pg_class.relkind IN ('r','v') 
-         AND pg_namespace.nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast') 
-         AND (has_table_privilege(pg_class.oid, 'SELECT') 
+    let sql = r#"SELECT
+             pg_class.relname AS name,
+             pg_namespace.nspname AS schema
+        FROM pg_class
+   LEFT JOIN pg_namespace
+          ON pg_namespace.oid = pg_class.relnamespace
+       WHERE
+             pg_class.relkind IN ('r','v')
+         AND pg_namespace.nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+         AND (has_table_privilege(pg_class.oid, 'SELECT')
                 OR has_any_column_privilege(pg_class.oid, 'SELECT')
              )
-    ORDER BY nspname, relname 
+    ORDER BY nspname, relname
             "#;
     let tablenames_simple: Result<Vec<TableNameSimple>, DbError> =
         em.execute_sql_with_return(sql, &[]);
@@ -96,16 +96,16 @@ fn get_schema_tables(
             }
         }
     }
-    let sql = r#"SELECT 
-             pg_class.relname AS name, 
-             pg_namespace.nspname AS schema 
-        FROM pg_class 
-   LEFT JOIN pg_namespace 
-          ON pg_namespace.oid = pg_class.relnamespace 
-       WHERE 
-             pg_class.relkind = $2::char 
+    let sql = r#"SELECT
+             pg_class.relname AS name,
+             pg_namespace.nspname AS schema
+        FROM pg_class
+   LEFT JOIN pg_namespace
+          ON pg_namespace.oid = pg_class.relnamespace
+       WHERE
+             pg_class.relkind = $2::char
          AND pg_namespace.nspname = $1
-    ORDER BY relname 
+    ORDER BY relname
             "#;
     let tablenames_simple: Result<Vec<TableNameSimple>, DbError> =
         em.execute_sql_with_return(sql, &[schema, &kind.to_sql_char()]);
@@ -129,14 +129,14 @@ fn get_schemas(em: &EntityManager) -> Result<Vec<String>, DbError> {
     struct SchemaSimple {
         schema: String,
     }
-    let sql = r#"SELECT 
-             pg_namespace.nspname AS schema 
-        FROM pg_namespace 
-       WHERE 
-             pg_namespace.nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast') 
-         AND pg_namespace.nspname NOT LIKE 'pg_temp_%' 
-         AND pg_namespace.nspname NOT LIKE 'pg_toast_temp_%' 
-    ORDER BY nspname 
+    let sql = r#"SELECT
+             pg_namespace.nspname AS schema
+        FROM pg_namespace
+       WHERE
+             pg_namespace.nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+         AND pg_namespace.nspname NOT LIKE 'pg_temp_%'
+         AND pg_namespace.nspname NOT LIKE 'pg_toast_temp_%'
+    ORDER BY nspname
             "#;
     let schema_simples: Result<Vec<SchemaSimple>, DbError> = em.execute_sql_with_return(sql, &[]);
     schema_simples.map(|simple| simple.iter().map(|s| s.schema.to_string()).collect())
@@ -190,16 +190,16 @@ pub fn get_table(em: &EntityManager, table_name: &TableName) -> Result<Table, Db
         }
     }
 
-    let sql = r#"SELECT pg_class.relname as name, 
-                pg_namespace.nspname as schema, 
-   CASE WHEN pg_class.relkind = 'v' THEN true ELSE false 
-         END AS is_view, 
-                obj_description(pg_class.oid) as comment 
-        FROM pg_class 
-   LEFT JOIN pg_namespace 
-          ON pg_namespace.oid = pg_class.relnamespace 
-       WHERE pg_class.relname = $1 
-         AND pg_namespace.nspname = $2 
+    let sql = r#"SELECT pg_class.relname as name,
+                pg_namespace.nspname as schema,
+   CASE WHEN pg_class.relkind = 'v' THEN true ELSE false
+         END AS is_view,
+                obj_description(pg_class.oid) as comment
+        FROM pg_class
+   LEFT JOIN pg_namespace
+          ON pg_namespace.oid = pg_class.relnamespace
+       WHERE pg_class.relname = $1
+         AND pg_namespace.nspname = $2
     "#;
 
     let schema = match table_name.schema {
@@ -254,19 +254,19 @@ fn get_columnname_from_key(
     key_name: &String,
     table_name: &TableName,
 ) -> Result<Vec<ColumnName>, DbError> {
-    let sql = r#"SELECT pg_attribute.attname as column 
-        FROM pg_attribute 
-        JOIN pg_class 
-          ON pg_class.oid = pg_attribute.attrelid 
-   LEFT JOIN pg_namespace 
-          ON pg_namespace.oid = pg_class.relnamespace 
-   LEFT JOIN pg_constraint 
-          ON pg_constraint.conrelid = pg_class.oid 
-         AND pg_attribute.attnum = ANY (pg_constraint.conkey) 
-       WHERE pg_namespace.nspname = $3 
-         AND pg_class.relname = $2 
-         AND pg_attribute.attnum > 0 
-         AND pg_constraint.conname = $1 
+    let sql = r#"SELECT pg_attribute.attname as column
+        FROM pg_attribute
+        JOIN pg_class
+          ON pg_class.oid = pg_attribute.attrelid
+   LEFT JOIN pg_namespace
+          ON pg_namespace.oid = pg_class.relnamespace
+   LEFT JOIN pg_constraint
+          ON pg_constraint.conrelid = pg_class.oid
+         AND pg_attribute.attnum = ANY (pg_constraint.conkey)
+       WHERE pg_namespace.nspname = $3
+         AND pg_class.relname = $2
+         AND pg_attribute.attnum > 0
+         AND pg_constraint.conname = $1
         "#;
     let schema = match table_name.schema {
         Some(ref schema) => schema.to_string(),
@@ -301,13 +301,13 @@ fn get_table_key(em: &EntityManager, table_name: &TableName) -> Result<Vec<Table
     impl TableKeySimple {
         fn to_table_key(self, em: &EntityManager, table_name: &TableName) -> TableKey {
             if self.is_primary_key {
-                let primary = PrimaryKey {
+                let primary = Key {
                     name: Some(self.key_name.to_owned()),
                     columns: get_columnname_from_key(em, &self.key_name, table_name).unwrap(),
                 };
                 TableKey::PrimaryKey(primary)
             } else if self.is_unique_key {
-                let unique = UniqueKey {
+                let unique = Key {
                     name: Some(self.key_name.to_owned()),
                     columns: get_columnname_from_key(em, &self.key_name, table_name).unwrap(),
                 };
@@ -325,19 +325,19 @@ fn get_table_key(em: &EntityManager, table_name: &TableName) -> Result<Vec<Table
         }
     }
 
-    let sql = r#"SELECT conname AS key_name, 
-        CASE WHEN contype = 'p' THEN true ELSE false END AS is_primary_key, 
-        CASE WHEN contype = 'u' THEN true ELSE false END AS is_unique_key, 
-        CASE WHEN contype = 'f' THEN true ELSE false END AS is_foreign_key 
-        FROM pg_constraint 
-   LEFT JOIN pg_class  
-          ON pg_class.oid = pg_constraint.conrelid 
-   LEFT JOIN pg_namespace 
-          ON pg_namespace.oid = pg_class.relnamespace 
-   LEFT JOIN pg_class AS g 
-          ON pg_constraint.confrelid = g.oid 
-       WHERE pg_class.relname = $1 
-         AND pg_namespace.nspname = $2 
+    let sql = r#"SELECT conname AS key_name,
+        CASE WHEN contype = 'p' THEN true ELSE false END AS is_primary_key,
+        CASE WHEN contype = 'u' THEN true ELSE false END AS is_unique_key,
+        CASE WHEN contype = 'f' THEN true ELSE false END AS is_foreign_key
+        FROM pg_constraint
+   LEFT JOIN pg_class
+          ON pg_class.oid = pg_constraint.conrelid
+   LEFT JOIN pg_namespace
+          ON pg_namespace.oid = pg_class.relnamespace
+   LEFT JOIN pg_class AS g
+          ON pg_constraint.confrelid = g.oid
+       WHERE pg_class.relname = $1
+         AND pg_namespace.nspname = $2
     ORDER BY is_primary_key DESC, is_unique_key DESC, is_foreign_key DESC
     "#;
 
@@ -391,13 +391,13 @@ fn get_foreign_key(
             }
         }
     }
-    let sql = r#"SELECT DISTINCT conname AS key_name, 
-        pg_class.relname AS foreign_table, 
-        (SELECT pg_namespace.nspname FROM pg_namespace WHERE pg_namespace.oid = pg_class.relnamespace) AS foreign_schema 
-        FROM pg_constraint 
-   LEFT JOIN pg_class 
-          ON pg_constraint.confrelid = pg_class.oid 
-       WHERE pg_constraint.conname = $1 
+    let sql = r#"SELECT DISTINCT conname AS key_name,
+        pg_class.relname AS foreign_table,
+        (SELECT pg_namespace.nspname FROM pg_namespace WHERE pg_namespace.oid = pg_class.relnamespace) AS foreign_schema
+        FROM pg_constraint
+   LEFT JOIN pg_class
+          ON pg_constraint.confrelid = pg_class.oid
+       WHERE pg_constraint.conname = $1
     "#;
 
     let foreign_key_simple: Result<ForeignKeySimple, DbError> =
@@ -418,15 +418,15 @@ fn get_referred_foreign_columns(
     em: &EntityManager,
     foreign_key: &String,
 ) -> Result<Vec<ColumnName>, DbError> {
-    let sql = r#"SELECT DISTINCT conname AS key_name, 
-        pg_attribute.attname AS column 
-        FROM pg_constraint 
-   LEFT JOIN pg_class 
-          ON pg_constraint.confrelid = pg_class.oid 
-   LEFT JOIN pg_attribute 
-          ON pg_attribute.attnum = ANY (pg_constraint.confkey) 
-         AND pg_class.oid = pg_attribute.attrelid 
-       WHERE pg_constraint.conname = $1 
+    let sql = r#"SELECT DISTINCT conname AS key_name,
+        pg_attribute.attname AS column
+        FROM pg_constraint
+   LEFT JOIN pg_class
+          ON pg_constraint.confrelid = pg_class.oid
+   LEFT JOIN pg_attribute
+          ON pg_attribute.attnum = ANY (pg_constraint.confkey)
+         AND pg_class.oid = pg_attribute.attrelid
+       WHERE pg_constraint.conname = $1
     "#;
 
     let foreign_columns: Result<Vec<ColumnNameSimple>, DbError> =
@@ -490,7 +490,7 @@ mod test {
         assert!(table.is_ok());
         assert_eq!(
             table.unwrap().table_key,
-            vec![TableKey::PrimaryKey(PrimaryKey {
+            vec![TableKey::PrimaryKey(Key {
                 name: Some("actor_pkey".to_string()),
                 columns: vec![ColumnName {
                     name: "actor_id".to_string(),
@@ -515,7 +515,7 @@ mod test {
         assert_eq!(
             table.unwrap().table_key,
             vec![
-                TableKey::PrimaryKey(PrimaryKey {
+                TableKey::PrimaryKey(Key {
                     name: Some("store_pkey".into()),
                     columns: vec![ColumnName {
                         name: "store_id".into(),
@@ -577,7 +577,7 @@ mod test {
         assert_eq!(
             table.unwrap().table_key,
             vec![
-                TableKey::PrimaryKey(PrimaryKey {
+                TableKey::PrimaryKey(Key {
                     name: Some("film_actor_pkey".into()),
                     columns: vec![
                         ColumnName {
@@ -646,7 +646,7 @@ mod test {
         assert_eq!(
             table.unwrap().table_key,
             vec![
-                TableKey::PrimaryKey(PrimaryKey {
+                TableKey::PrimaryKey(Key {
                     name: Some("film_actor_awards_pkey".into()),
                     columns: vec![
                         ColumnName {
