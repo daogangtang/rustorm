@@ -95,20 +95,26 @@ impl EntityManager {
         let columns = R::to_column_names();
         let mut sql = String::new();
         sql += "SELECT ";
-        sql += head_clause;
-        sql += &format!(
-            " {}\n",
-            columns
+
+        if head_clause == "" {
+            sql += &format!(
+                " {}\n",
+                columns
                 .iter()
                 .map(|c| c.name.to_owned())
                 .collect::<Vec<_>>()
                 .join(", ")
-        );
+            );
+        }
+        else {
+            sql += &format!(" {} ", head_clause);
+        }
+
         if from_clause == "" {
             sql += &format!("FROM {} ", table.complete_name());
         }
         else {
-            sql += &format!("FROM {} ", from_clause);
+            sql += &format!("{} ", from_clause);
         }
         sql += rest_clause;
 
