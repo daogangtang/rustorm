@@ -91,12 +91,11 @@ impl EntityManager {
     where
         R: FromDao + ToTableName + ToColumnNames,
     {
-        let table = R::to_table_name();
-        let columns = R::to_column_names();
         let mut sql = String::new();
         sql += "SELECT ";
 
         if head_clause == "" {
+            let columns = R::to_column_names();
             sql += &format!(
                 " {}\n",
                 columns
@@ -111,6 +110,7 @@ impl EntityManager {
         }
 
         if from_clause == "" {
+            let table = R::to_table_name();
             sql += &format!("FROM {} ", table.complete_name());
         }
         else {
