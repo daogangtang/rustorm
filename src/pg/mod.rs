@@ -12,16 +12,13 @@ use entity::EntityManager;
 use error::DbError;
 use error::PlatformError;
 use geo::Point;
-use openssl::ssl::{SslConnectorBuilder, SslMethod};
+// use openssl::ssl::{SslConnectorBuilder, SslMethod};
 use postgres;
-use postgres::tls::openssl::OpenSsl;
+use postgres::{Connection, TlsMode};
+// use postgres::tls::openssl::OpenSsl;
 use postgres::types::{self, FromSql, IsNull, ToSql, Type};
 use postgres_shared::types::Kind;
 use postgres_shared::types::Kind::Enum;
-use r2d2;
-use r2d2::ManageConnection;
-use r2d2_postgres;
-use r2d2_postgres::TlsMode;
 use serde_json;
 use std::error::Error;
 use std::fmt;
@@ -38,34 +35,23 @@ mod interval;
 mod numeric;
 mod table_info;
 
-pub fn init_pool(
-    db_url: &str,
-) -> Result<r2d2::Pool<r2d2_postgres::PostgresConnectionManager>, PostgresError> {
-    test_connection(db_url)?;
-    let manager = r2d2_postgres::PostgresConnectionManager::new(db_url, TlsMode::None)?;
-    //let manager = r2d2_postgres::PostgresConnectionManager::new(db_url, get_tls())?;
-    let pool = r2d2::Pool::new(manager)?;
-    Ok(pool)
+pub fn init_connection(db_url: &str) -> Connection {
+    let conn = Connection::connect(db_url, TlsMode::None)
+            .unwrap();
+
+    conn
 }
 
-fn get_tls() -> TlsMode {
-    let mut builder = SslConnectorBuilder::new(SslMethod::tls()).unwrap();
-    builder
-        .set_ca_file("/etc/ssl/certs/ca-certificates.crt")
-        .unwrap();
-    let negotiator = OpenSsl::from(builder.build());
-    TlsMode::Require(Box::new(negotiator))
-}
+// fn get_tls() -> TlsMode {
+//     let mut builder = SslConnectorBuilder::new(SslMethod::tls()).unwrap();
+//     builder
+//         .set_ca_file("/etc/ssl/certs/ca-certificates.crt")
+//         .unwrap();
+//     let negotiator = OpenSsl::from(builder.build());
+//     TlsMode::Require(Box::new(negotiator))
+// }
 
-pub fn test_connection(db_url: &str) -> Result<(), PostgresError> {
-    let manager = r2d2_postgres::PostgresConnectionManager::new(db_url, TlsMode::None)?;
-    //let manager = r2d2_postgres::PostgresConnectionManager::new(db_url, get_tls())?;
-    let mut conn = manager.connect()?;
-    manager.is_valid(&mut conn)?;
-    Ok(())
-}
-
-pub struct PostgresDB(pub r2d2::PooledConnection<r2d2_postgres::PostgresConnectionManager>);
+pub struct PostgresDB(pub postgres::Connection);
 
 impl Database for PostgresDB {
     fn execute_sql_with_return(&self, sql: &str, param: &[&Value]) -> Result<Rows, DbError> {
@@ -386,18 +372,11 @@ pub enum PostgresError {
     ConvertStringToCharError(String),
     FromUtf8Error(FromUtf8Error),
     ConvertNumericToBigDecimalError,
-    PoolInitializationError(r2d2::Error),
 }
 
 impl From<postgres::Error> for PostgresError {
     fn from(e: postgres::Error) -> Self {
         PostgresError::GenericError("From conversion".into(), e)
-    }
-}
-
-impl From<r2d2::Error> for PostgresError {
-    fn from(e: r2d2::Error) -> Self {
-        PostgresError::PoolInitializationError(e)
     }
 }
 

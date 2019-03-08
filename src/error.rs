@@ -1,4 +1,4 @@
-use r2d2;
+// use r2d2;
 use std::error::Error;
 use std::fmt;
 use url;
@@ -16,7 +16,7 @@ pub enum ConnectError {
     NoSuchPoolConnection,
     ParseError(ParseError),
     UnsupportedDb(String),
-    R2d2Error(r2d2::Error),
+    // R2d2Error(r2d2::Error),
 }
 
 /// TODO: use error_chain i guess?

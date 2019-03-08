@@ -118,7 +118,7 @@ extern crate chrono;
 extern crate num_bigint;
 extern crate num_integer;
 extern crate num_traits;
-extern crate r2d2;
+// extern crate r2d2;
 #[macro_use]
 extern crate rustorm_codegen;
 extern crate rustorm_dao as dao;
@@ -135,7 +135,7 @@ extern crate uuid;
 extern crate log;
 
 cfg_if! {if #[cfg(feature = "with-postgres")]{
-    extern crate r2d2_postgres;
+    // extern crate r2d2_postgres;
     extern crate openssl;
     extern crate postgres;
     #[macro_use]
@@ -143,7 +143,7 @@ cfg_if! {if #[cfg(feature = "with-postgres")]{
     mod pg;
 }}
 cfg_if! {if #[cfg(feature = "with-sqlite")]{
-    extern crate r2d2_sqlite3;
+    // extern crate r2d2_sqlite3;
     extern crate sqlite3;
     mod sq;
 }}
@@ -154,7 +154,8 @@ mod database;
 mod entity;
 pub mod error;
 mod platform;
-pub mod pool;
+// pub mod pool;
+mod dbmanager;
 mod dao_manager;
 pub mod table;
 pub mod types;
@@ -172,7 +173,8 @@ pub use dao::{FromDao, ToDao};
 pub use database::Database;
 pub use entity::EntityManager;
 pub use error::DbError;
-pub use pool::Pool;
+// pub use pool::Pool;
+pub use dbmanager::DbManager;
 pub use dao::Dao;
 pub use dao_manager::DaoManager;
 pub use table::Table;
